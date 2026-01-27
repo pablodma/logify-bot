@@ -17,8 +17,9 @@ const client = new Client({
 
 // Ready event
 client.once(Events.ClientReady, (readyClient) => {
-  console.log(`✅ Bot conectado como ${readyClient.user.tag}`);
+  console.log(`✅ Bot conectado como ${readyClient.user.tag} (v1.1.0)`);
   console.log(`📊 Conectado a ${readyClient.guilds.cache.size} servidor(es)`);
+  console.log(`🔗 n8n webhook: ${config.n8n.enabled ? 'HABILITADO' : 'DESHABILITADO'}`);
   
   // Set bot status
   readyClient.user.setPresence({
