@@ -1,4 +1,4 @@
-import { Client, GatewayIntentBits, Events, Interaction } from 'discord.js';
+import { Client, GatewayIntentBits, Events, Interaction, Message } from 'discord.js';
 import { config, validateConfig } from './config';
 import { commands } from './commands';
 
@@ -11,6 +11,7 @@ const client = new Client({
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMembers,
     GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent, // Necesario para leer contenido de mensajes
   ],
 });
 
@@ -52,6 +53,82 @@ client.on(Events.InteractionCreate, async (interaction: Interaction) => {
     } else {
       await interaction.reply({ content: errorMessage, ephemeral: true });
     }
+  }
+});
+
+// Message handler para n8n webhook (AI Agent)
+client.on(Events.MessageCreate, async (message: Message) => {
+  // Ignorar mensajes del propio bot
+  if (message.author.bot) return;
+
+  // Solo procesar si n8n está habilitado
+  if (!config.n8n.enabled) return;
+
+  // Solo procesar si el bot es mencionado o es un DM
+  const isMentioned = message.mentions.has(client.user!.id);
+  const isDM = !message.guild;
+  
+  if (!isMentioned && !isDM) return;
+
+  // Limpiar el mensaje (quitar la mención del bot)
+  const cleanMessage = message.content
+    .replace(new RegExp(`<@!?${client.user!.id}>`, 'g'), '')
+    .trim();
+
+  // Ignorar mensajes vacíos después de quitar la mención
+  if (!cleanMessage) return;
+
+  console.log(`💬 Mensaje recibido de ${message.author.tag}: ${cleanMessage.substring(0, 50)}...`);
+
+  try {
+    // Indicar que el bot está "escribiendo"
+    await message.channel.sendTyping();
+
+    // Enviar a n8n webhook
+    const response = await fetch(config.n8n.webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        source: 'discord',
+        userId: message.author.id,
+        userName: message.author.username,
+        userTag: message.author.tag,
+        message: cleanMessage,
+        channelId: message.channel.id,
+        messageId: message.id,
+        guildId: message.guild?.id || null,
+        guildName: message.guild?.name || 'DM',
+        timestamp: message.createdTimestamp,
+      }),
+    });
+
+    if (!response.ok) {
+      console.error(`❌ Error de n8n webhook: ${response.status} ${response.statusText}`);
+      await message.reply('❌ Error al procesar tu mensaje. Intenta de nuevo más tarde.');
+      return;
+    }
+
+    // Si n8n devuelve una respuesta, enviarla
+    const data = await response.json();
+    
+    if (data.response || data.output || data.message) {
+      const aiResponse = data.response || data.output || data.message;
+      
+      // Dividir respuestas largas (Discord tiene límite de 2000 caracteres)
+      if (aiResponse.length > 2000) {
+        const chunks = aiResponse.match(/.{1,1900}/gs) || [];
+        for (const chunk of chunks) {
+          await message.reply(chunk);
+        }
+      } else {
+        await message.reply(aiResponse);
+      }
+      
+      console.log(`✅ Respuesta enviada a ${message.author.tag}`);
+    }
+  } catch (error) {
+    console.error('❌ Error enviando a n8n:', error);
+    await message.reply('❌ Error de conexión con el agente. Intenta de nuevo más tarde.');
   }
 });
 

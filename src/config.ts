@@ -19,6 +19,12 @@ export const config = {
   app: {
     url: process.env.APP_URL || 'https://logifyme.vercel.app',
   },
+
+  // n8n Webhook (opcional - para integración con AI Agent)
+  n8n: {
+    webhookUrl: process.env.N8N_WEBHOOK_URL || '',
+    enabled: !!process.env.N8N_WEBHOOK_URL,
+  },
 };
 
 // Validate required environment variables

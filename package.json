@@ -1,7 +1,7 @@
 {
   "name": "logify-bot",
-  "version": "1.0.0",
-  "description": "Bot de Discord para Logify - Gestión de usuarios y eventos",
+  "version": "1.1.0",
+  "description": "Bot de Discord para Logify - Gestión de usuarios, eventos e integración con n8n AI Agent",
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
@@ -20,6 +20,6 @@
     "ts-node": "^10.9.2"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.0.0"
   }
 }
