@@ -1,4 +1,11 @@
-import { Client, GatewayIntentBits, Events, Interaction, Message } from 'discord.js';
+import { Client, GatewayIntentBits, Events, Interaction, Message, TextChannel } from 'discord.js';
+
+// Tipo para la respuesta de n8n
+interface N8nResponse {
+  response?: string;
+  output?: string;
+  message?: string;
+}
 import { config, validateConfig } from './config';
 import { commands } from './commands';
 
@@ -82,8 +89,10 @@ client.on(Events.MessageCreate, async (message: Message) => {
   console.log(`💬 Mensaje recibido de ${message.author.tag}: ${cleanMessage.substring(0, 50)}...`);
 
   try {
-    // Indicar que el bot está "escribiendo"
-    await message.channel.sendTyping();
+    // Indicar que el bot está "escribiendo" (solo en canales que lo soporten)
+    if ('sendTyping' in message.channel) {
+      await (message.channel as TextChannel).sendTyping();
+    }
 
     // Enviar a n8n webhook
     const response = await fetch(config.n8n.webhookUrl, {
@@ -110,10 +119,10 @@ client.on(Events.MessageCreate, async (message: Message) => {
     }
 
     // Si n8n devuelve una respuesta, enviarla
-    const data = await response.json();
+    const data = await response.json() as N8nResponse;
     
     if (data.response || data.output || data.message) {
-      const aiResponse = data.response || data.output || data.message;
+      const aiResponse = data.response || data.output || data.message || '';
       
       // Dividir respuestas largas (Discord tiene límite de 2000 caracteres)
       if (aiResponse.length > 2000) {
