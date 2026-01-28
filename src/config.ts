@@ -25,6 +25,17 @@ export const config = {
     webhookUrl: process.env.N8N_WEBHOOK_URL || '',
     enabled: !!process.env.N8N_WEBHOOK_URL,
   },
+
+  // OpenAI (para RAG embeddings)
+  openai: {
+    apiKey: process.env.OPENAI_API_KEY || '',
+  },
+
+  // Webhook server for Web -> Discord sync
+  webhook: {
+    port: parseInt(process.env.WEBHOOK_PORT || '3001', 10),
+    secret: process.env.WEBHOOK_SECRET || 'logify-webhook-secret',
+  },
 };
 
 // Validate required environment variables

@@ -1,4 +1,4 @@
-import { Client, GatewayIntentBits, Events, Interaction, Message, TextChannel } from 'discord.js';
+import { Client, GatewayIntentBits, Events, Interaction, Message, TextChannel, GuildMember, PartialGuildMember } from 'discord.js';
 
 // Tipo para la respuesta de n8n
 interface N8nResponse {
@@ -8,6 +8,13 @@ interface N8nResponse {
 }
 import { config, validateConfig } from './config';
 import { commands } from './commands';
+import { 
+  initRoleSyncService, 
+  syncRoleChangesToSupabase, 
+  syncPendingRolesToDiscord,
+  isLogifyManagedRole 
+} from './services/roleSyncService';
+import { startWebhookServer } from './webhook-server';
 
 // Validate environment variables
 validateConfig();
@@ -23,10 +30,24 @@ const client = new Client({
 });
 
 // Ready event
-client.once(Events.ClientReady, (readyClient) => {
-  console.log(`✅ Bot conectado como ${readyClient.user.tag} (v1.1.0)`);
+client.once(Events.ClientReady, async (readyClient) => {
+  console.log(`✅ Bot conectado como ${readyClient.user.tag} (v1.2.0)`);
   console.log(`📊 Conectado a ${readyClient.guilds.cache.size} servidor(es)`);
   console.log(`🔗 n8n webhook: ${config.n8n.enabled ? 'HABILITADO' : 'DESHABILITADO'}`);
+  console.log(`🔄 Role sync: HABILITADO`);
+  
+  // Initialize role sync service
+  initRoleSyncService(readyClient);
+  
+  // Sync pending roles on startup
+  try {
+    await syncPendingRolesToDiscord();
+  } catch (error) {
+    console.error('❌ Error syncing pending roles on startup:', error);
+  }
+  
+  // Start webhook server for Web -> Discord sync
+  startWebhookServer();
   
   // Set bot status
   readyClient.user.setPresence({
@@ -139,6 +160,33 @@ client.on(Events.MessageCreate, async (message: Message) => {
   } catch (error) {
     console.error('❌ Error enviando a n8n:', error);
     await message.reply('❌ Error de conexión con el agente. Intenta de nuevo más tarde.');
+  }
+});
+
+// GuildMemberUpdate handler para sincronización de roles Discord → Web
+client.on(Events.GuildMemberUpdate, async (oldMember: GuildMember | PartialGuildMember, newMember: GuildMember) => {
+  // Only process if it's our target guild
+  if (newMember.guild.id !== config.discord.guildId) return;
+  
+  // Detect role changes
+  const addedRoles = newMember.roles.cache.filter(role => !oldMember.roles.cache.has(role.id));
+  const removedRoles = oldMember.roles.cache.filter(role => !newMember.roles.cache.has(role.id));
+  
+  // If no role changes, skip
+  if (addedRoles.size === 0 && removedRoles.size === 0) return;
+  
+  // Filter to only Logify-managed roles
+  const managedAddedRoles = addedRoles.filter(async (role) => await isLogifyManagedRole(role.id));
+  const managedRemovedRoles = removedRoles.filter(async (role) => await isLogifyManagedRole(role.id));
+  
+  if (managedAddedRoles.size === 0 && managedRemovedRoles.size === 0) return;
+  
+  console.log(`🔄 Role change detected for ${newMember.user.tag}: +${addedRoles.size} -${removedRoles.size}`);
+  
+  try {
+    await syncRoleChangesToSupabase(newMember.id, addedRoles, removedRoles);
+  } catch (error) {
+    console.error(`❌ Error syncing role changes for ${newMember.user.tag}:`, error);
   }
 });
 
