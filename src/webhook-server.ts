@@ -350,11 +350,12 @@ app.post('/sync/profile-role/remove', verifyWebhookSecret, async (req: Request, 
 // SERVER START
 // ==========================================
 
-const WEBHOOK_PORT = parseInt(process.env.WEBHOOK_PORT || '3001', 10);
+// Railway assigns PORT automatically - use it for external access
+const PORT = parseInt(process.env.PORT || process.env.WEBHOOK_PORT || '3001', 10);
 
 export function startWebhookServer(): void {
-  app.listen(WEBHOOK_PORT, () => {
-    console.log(`🌐 Webhook server running on port ${WEBHOOK_PORT}`);
+  app.listen(PORT, () => {
+    console.log(`🌐 Webhook server running on port ${PORT}`);
   });
 }
 
