@@ -32,8 +32,9 @@ export const config = {
   },
 
   // Webhook server for Web -> Discord sync
+  // Railway provides PORT env var for HTTP traffic routing
   webhook: {
-    port: parseInt(process.env.WEBHOOK_PORT || '3001', 10),
+    port: parseInt(process.env.PORT || process.env.WEBHOOK_PORT || '3001', 10),
     secret: process.env.WEBHOOK_SECRET || 'logify-webhook-secret',
   },
 };
