@@ -59,15 +59,28 @@ async function getGuild(): Promise<Guild | null> {
  * Get all roles from the Discord guild
  */
 export async function getGuildRoles(): Promise<Collection<string, DiscordRole> | null> {
-  const guild = await getGuild();
-  if (!guild) {
+  if (!discordClient) {
+    console.error('❌ Discord client not initialized');
     return null;
   }
   
   try {
+    // Get guild from cache first (more reliable for roles)
+    let guild = discordClient.guilds.cache.get(config.discord.guildId);
+    
+    // If not in cache, fetch it
+    if (!guild) {
+      guild = await discordClient.guilds.fetch(config.discord.guildId);
+    }
+    
+    if (!guild) {
+      console.error('❌ Guild not found');
+      return null;
+    }
+    
     // Fetch all roles from the guild
-    await guild.roles.fetch();
-    return guild.roles.cache;
+    const roles = await guild.roles.fetch();
+    return roles;
   } catch (error) {
     console.error('❌ Error fetching guild roles:', error);
     return null;
