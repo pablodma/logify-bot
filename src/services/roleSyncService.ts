@@ -65,21 +65,31 @@ export async function getGuildRoles(): Promise<Collection<string, DiscordRole> |
   }
   
   try {
-    // Get guild from cache first (more reliable for roles)
-    let guild = discordClient.guilds.cache.get(config.discord.guildId);
+    console.log('🔍 Getting guild roles...');
+    console.log(`🔍 Guild ID: ${config.discord.guildId}`);
+    console.log(`🔍 Client ready: ${discordClient.isReady()}`);
+    console.log(`🔍 Guilds in cache: ${discordClient.guilds.cache.size}`);
     
-    // If not in cache, fetch it
+    // Get guild from cache first (more reliable for roles)
+    const guild = discordClient.guilds.cache.get(config.discord.guildId);
+    
     if (!guild) {
-      guild = await discordClient.guilds.fetch(config.discord.guildId);
+      console.error('❌ Guild not found in cache');
+      console.log(`🔍 Available guilds: ${Array.from(discordClient.guilds.cache.keys()).join(', ')}`);
+      return null;
     }
     
-    if (!guild) {
-      console.error('❌ Guild not found');
+    console.log(`🔍 Guild found: ${guild.name}`);
+    console.log(`🔍 Guild roles manager exists: ${!!guild.roles}`);
+    
+    if (!guild.roles) {
+      console.error('❌ Guild roles manager is undefined');
       return null;
     }
     
     // Fetch all roles from the guild
     const roles = await guild.roles.fetch();
+    console.log(`✅ Found ${roles.size} roles`);
     return roles;
   } catch (error) {
     console.error('❌ Error fetching guild roles:', error);
