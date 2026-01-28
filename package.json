@@ -1,23 +1,31 @@
 {
   "name": "logify-bot",
-  "version": "1.1.0",
-  "description": "Bot de Discord para Logify - Gestión de usuarios, eventos e integración con n8n AI Agent",
+  "version": "1.2.0",
+  "description": "Bot de Discord para Logify - Gestión de usuarios, eventos, sincronización de roles e integración con n8n AI Agent",
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
     "dev": "ts-node src/index.ts",
-    "deploy-commands": "ts-node src/deploy-commands.ts"
+    "deploy-commands": "ts-node src/deploy-commands.ts",
+    "index-wiki": "ts-node src/index-wiki.ts"
   },
   "dependencies": {
+    "@langchain/textsplitters": "^1.0.1",
     "@supabase/supabase-js": "^2.45.0",
+    "cheerio": "^1.2.0",
     "discord.js": "^14.16.0",
-    "dotenv": "^16.4.5"
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0",
+    "langchain": "^1.2.14",
+    "openai": "^6.16.0"
   },
   "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.0",
     "@types/node": "^22.0.0",
-    "typescript": "^5.6.0",
-    "ts-node": "^10.9.2"
+    "ts-node": "^10.9.2",
+    "typescript": "^5.6.0"
   },
   "engines": {
     "node": ">=20.0.0"
