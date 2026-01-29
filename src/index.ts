@@ -14,7 +14,9 @@ import {
   syncPendingRolesToDiscord,
   isLogifyManagedRole 
 } from './services/roleSyncService';
+import { initNotificationService } from './services/notificationService';
 import { startWebhookServer } from './webhook-server';
+import { handleOnboardingConfirmation } from './services/onboardingService';
 
 // Validate environment variables
 validateConfig();
@@ -38,6 +40,9 @@ client.once(Events.ClientReady, async (readyClient) => {
   
   // Initialize role sync service
   initRoleSyncService(readyClient);
+  
+  // Initialize notification service
+  initNotificationService(readyClient);
   
   // Sync pending roles on startup
   try {
@@ -85,13 +90,10 @@ client.on(Events.InteractionCreate, async (interaction: Interaction) => {
   }
 });
 
-// Message handler para n8n webhook (AI Agent)
+// Message handler para n8n webhook (AI Agent) y Onboarding
 client.on(Events.MessageCreate, async (message: Message) => {
   // Ignorar mensajes del propio bot
   if (message.author.bot) return;
-
-  // Solo procesar si n8n está habilitado
-  if (!config.n8n.enabled) return;
 
   // Solo procesar si el bot es mencionado o es un DM
   const isMentioned = message.mentions.has(client.user!.id);
@@ -110,9 +112,36 @@ client.on(Events.MessageCreate, async (message: Message) => {
   console.log(`💬 Mensaje recibido de ${message.author.tag}: ${cleanMessage.substring(0, 50)}...`);
 
   try {
-    // Indicar que el bot está "escribiendo" (solo en canales que lo soporten)
+    // Indicar que el bot está "escribiendo"
     if ('sendTyping' in message.channel) {
       await (message.channel as TextChannel).sendTyping();
+    }
+
+    // ============================================
+    // ONBOARDING: Check for confirmation phrase
+    // ============================================
+    if (message.member) {
+      const onboardingResult = await handleOnboardingConfirmation(message.member, cleanMessage);
+      
+      if (onboardingResult.matched) {
+        // Message was an onboarding confirmation attempt
+        if (onboardingResult.success) {
+          await message.reply(onboardingResult.message);
+          console.log(`✅ Onboarding confirmation processed for ${message.author.tag}`);
+        } else {
+          await message.reply(`❌ ${onboardingResult.message}`);
+          console.log(`⚠️ Onboarding confirmation failed for ${message.author.tag}: ${onboardingResult.message}`);
+        }
+        return; // Don't process with n8n
+      }
+    }
+
+    // ============================================
+    // N8N: Process with AI agent if enabled
+    // ============================================
+    if (!config.n8n.enabled) {
+      // n8n not enabled and not an onboarding message - no response
+      return;
     }
 
     // Enviar a n8n webhook
@@ -158,8 +187,8 @@ client.on(Events.MessageCreate, async (message: Message) => {
       console.log(`✅ Respuesta enviada a ${message.author.tag}`);
     }
   } catch (error) {
-    console.error('❌ Error enviando a n8n:', error);
-    await message.reply('❌ Error de conexión con el agente. Intenta de nuevo más tarde.');
+    console.error('❌ Error procesando mensaje:', error);
+    await message.reply('❌ Error al procesar tu mensaje. Intenta de nuevo más tarde.');
   }
 });
 
