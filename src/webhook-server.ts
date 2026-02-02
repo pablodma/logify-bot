@@ -7,6 +7,16 @@ import {
   assignRoleToMember,
   removeRoleFromMember 
 } from './services/roleSyncService';
+import {
+  getDiscordStatus,
+  getTextChannels,
+  sendEventNotification,
+  sendReminderNotification,
+  sendLogNotification,
+  NotifyEventRequest,
+  NotifyReminderRequest,
+  LogNotificationRequest
+} from './services/notificationService';
 import { getSupabase, getProfileByDiscordId } from './supabase';
 import { config } from './config';
 
@@ -343,6 +353,151 @@ app.post('/sync/profile-role/remove', verifyWebhookSecret, async (req: Request, 
   } catch (error: any) {
     console.error('❌ Error in /sync/profile-role/remove:', error);
     res.status(500).json({ error: error.message || 'Internal server error' });
+  }
+});
+
+// ==========================================
+// DISCORD STATUS & CHANNELS ENDPOINTS
+// ==========================================
+
+/**
+ * Get Discord bot status and server info
+ * GET /discord/status
+ */
+app.get('/discord/status', verifyWebhookSecret, async (req: Request, res: Response) => {
+  try {
+    // Get stats from Supabase
+    const supabase = getSupabase();
+    
+    // Count linked users (profiles with discord_id)
+    const { count: linkedUsers } = await supabase
+      .from('profiles')
+      .select('*', { count: 'exact', head: true })
+      .not('discord_id', 'is', null);
+    
+    // Count synced roles (roles with discord_role_id)
+    const { count: syncedRoles } = await supabase
+      .from('roles')
+      .select('*', { count: 'exact', head: true })
+      .not('discord_role_id', 'is', null);
+    
+    const status = await getDiscordStatus(linkedUsers || 0, syncedRoles || 0);
+    
+    res.json(status);
+  } catch (error: any) {
+    console.error('❌ Error fetching Discord status:', error);
+    res.status(500).json({ error: error.message || 'Failed to fetch Discord status' });
+  }
+});
+
+/**
+ * Get Discord text channels
+ * GET /discord/channels
+ */
+app.get('/discord/channels', verifyWebhookSecret, async (req: Request, res: Response) => {
+  try {
+    const channels = await getTextChannels();
+    res.json({ channels });
+  } catch (error: any) {
+    console.error('❌ Error fetching Discord channels:', error);
+    res.status(500).json({ error: error.message || 'Failed to fetch Discord channels' });
+  }
+});
+
+// ==========================================
+// NOTIFICATION ENDPOINTS
+// ==========================================
+
+/**
+ * Send event notification to Discord
+ * POST /notify/event
+ */
+app.post('/notify/event', verifyWebhookSecret, async (req: Request, res: Response) => {
+  try {
+    const data: NotifyEventRequest = req.body;
+    
+    if (!data.channel_id || !data.event?.id || !data.event?.title) {
+      res.status(400).json({ 
+        success: false, 
+        error: 'channel_id, event.id and event.title are required' 
+      });
+      return;
+    }
+    
+    console.log(`📥 Notify event request: ${data.event.title}`);
+    
+    const result = await sendEventNotification(data);
+    
+    if (result.success) {
+      res.json(result);
+    } else {
+      res.status(500).json(result);
+    }
+  } catch (error: any) {
+    console.error('❌ Error in /notify/event:', error);
+    res.status(500).json({ success: false, error: error.message || 'Internal server error' });
+  }
+});
+
+/**
+ * Send reminder notification to Discord
+ * POST /notify/reminder
+ */
+app.post('/notify/reminder', verifyWebhookSecret, async (req: Request, res: Response) => {
+  try {
+    const data: NotifyReminderRequest = req.body;
+    
+    if (!data.channel_id || !data.event?.id || !data.event?.title) {
+      res.status(400).json({ 
+        success: false, 
+        error: 'channel_id, event.id and event.title are required' 
+      });
+      return;
+    }
+    
+    console.log(`📥 Notify reminder request: ${data.event.title}`);
+    
+    const result = await sendReminderNotification(data);
+    
+    if (result.success) {
+      res.json(result);
+    } else {
+      res.status(500).json(result);
+    }
+  } catch (error: any) {
+    console.error('❌ Error in /notify/reminder:', error);
+    res.status(500).json({ success: false, error: error.message || 'Internal server error' });
+  }
+});
+
+/**
+ * Send log notification to Discord
+ * POST /notify/log
+ */
+app.post('/notify/log', verifyWebhookSecret, async (req: Request, res: Response) => {
+  try {
+    const data: LogNotificationRequest = req.body;
+    
+    if (!data.channel_id || !data.action || !data.actor?.name) {
+      res.status(400).json({ 
+        success: false, 
+        error: 'channel_id, action and actor.name are required' 
+      });
+      return;
+    }
+    
+    console.log(`📥 Notify log request: ${data.action} by ${data.actor.name}`);
+    
+    const result = await sendLogNotification(data);
+    
+    if (result.success) {
+      res.json(result);
+    } else {
+      res.status(500).json(result);
+    }
+  } catch (error: any) {
+    console.error('❌ Error in /notify/log:', error);
+    res.status(500).json({ success: false, error: error.message || 'Internal server error' });
   }
 });
 

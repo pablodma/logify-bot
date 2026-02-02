@@ -33,9 +33,10 @@ export const config = {
 
   // Webhook server for Web -> Discord sync
   // Railway provides PORT env var for HTTP traffic routing
+  // SECURITY: No fallback for secret - must be configured in environment
   webhook: {
     port: parseInt(process.env.PORT || process.env.WEBHOOK_PORT || '3001', 10),
-    secret: process.env.WEBHOOK_SECRET || 'logify-webhook-secret',
+    secret: process.env.WEBHOOK_SECRET!, // Required - no fallback
   },
 };
 
@@ -46,11 +47,19 @@ export function validateConfig(): void {
     'DISCORD_CLIENT_ID',
     'SUPABASE_URL',
     'SUPABASE_SERVICE_ROLE_KEY',
+    'WEBHOOK_SECRET', // SECURITY: Webhook secret is now required
   ];
 
   const missing = required.filter((key) => !process.env[key]);
 
   if (missing.length > 0) {
+    console.error('🔴 SECURITY ERROR: Missing required environment variables');
     throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
+  }
+  
+  // SECURITY: Validate webhook secret strength
+  const webhookSecret = process.env.WEBHOOK_SECRET!;
+  if (webhookSecret.length < 32) {
+    console.warn('⚠️ SECURITY WARNING: WEBHOOK_SECRET should be at least 32 characters for security');
   }
 }
